@@ -1,0 +1,244 @@
+using System.Collections;
+using System.Collections.Generic;
+using TMPro;
+using UnityEditorInternal.Profiling.Memory.Experimental.FileFormat;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.SocialPlatforms.Impl;
+using UnityEngine.UIElements.Experimental;
+
+public class Character_control : MonoBehaviour
+{
+    private float horizontal;
+    [SerializeField] private Rigidbody2D rb;
+    [SerializeField] private float speed;
+    [SerializeField] private float sneak_speed;
+    bool isFacingRight = true;
+    public bool isSneak;
+    bool iskey;
+
+    public bool ishear;
+
+    [SerializeField] private BoxCollider2D guardhearing;
+    [SerializeField] private GameObject player;
+    [SerializeField] private LayerMask enemyLayer;
+
+    private GameObject currentDoor;
+    private GameObject currentlocker;
+
+    public bool isInsideGuardHearing;
+    public bool isInsideGuardVision;
+
+    public bool iscanusedoor;
+    public bool ismoving;
+    public bool iscanhide;
+    public bool ishiding;
+
+    public TextMeshPro hidetxt, unhidetxt, usedoortxt, zapguard;
+
+    private void Start()
+    {
+        hidetxt.enabled = false;
+        unhidetxt.enabled = false;
+        usedoortxt.enabled = false;
+        zapguard.enabled = false;
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        move();
+        sneak();
+        facing();
+
+        usedoor();
+        hide();
+
+        isloud();
+        isvisible();
+        textontop();
+    }
+
+    private void move()
+    {
+        horizontal = Input.GetAxisRaw("Horizontal");
+
+        if (horizontal != 0)
+        {
+            ismoving = true;
+        }
+        else
+        {
+            ismoving = false;
+        }
+
+        if (ishiding == false)
+        {
+            rb.velocity = new Vector2(horizontal * speed, rb.velocity.y);
+        }
+    }
+    private void sneak()
+    {
+        if (Input.GetKeyDown(KeyCode.LeftShift))
+        {
+            isSneak = true;
+            speed = speed / sneak_speed;
+        }
+
+        if (Input.GetKeyUp(KeyCode.LeftShift))
+        {
+            isSneak = false;
+            speed = speed * sneak_speed;
+        }
+    }
+
+    private void facing()
+    {
+        if (ishiding == false && (isFacingRight && horizontal < 0f || !isFacingRight && horizontal > 0f))
+        {
+            isFacingRight = !isFacingRight;
+            Vector3 localScale = transform.localScale;
+            localScale.x *= -1f;
+            transform.localScale = localScale;
+        }
+    }
+
+    private void usedoor()
+    {
+        if (Input.GetKeyDown(KeyCode.E) && iskey == true)
+        {
+            if (currentDoor != null)
+            {
+                transform.position = currentDoor.GetComponent<Door>().GetDestination().position;
+            }
+        }
+    }
+
+    public void hide()
+    {
+        if (iscanhide && Input.GetKeyDown(KeyCode.E))
+        {
+            ishiding = !ishiding; // Toggle the hiding state
+
+            if (ishiding)
+            {
+                rb.velocity = Vector3.zero;
+                transform.position = currentlocker.GetComponent<locker>().GetDestination().position;
+            }
+        }
+    }
+
+    public void textontop()
+    {
+        if (iscanhide == true && ishiding == false)
+        {
+            hidetxt.enabled = true;
+        }
+        else
+        {
+            hidetxt.enabled = false;
+        }
+
+        if (ishiding == true)
+        {
+            unhidetxt.enabled = true;
+        }
+        else
+        {
+            unhidetxt.enabled = false;
+        }
+
+        if (iscanusedoor == true)
+        {
+            usedoortxt.enabled = true;
+        }
+        else
+        {
+            usedoortxt.enabled = false;
+        }
+    }
+
+    private void isloud()
+    {
+        if (isInsideGuardHearing == true && isSneak == false && ismoving == true && ishiding == false)
+        {
+           StartCoroutine(gameoverafterdelay());
+        }
+    }
+
+    private void isvisible()
+    {
+        if (isInsideGuardVision == true && ishiding == false)
+        {
+            StartCoroutine(gameoverafterdelay());
+        }
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.CompareTag("door"))
+        {
+            iscanusedoor = true;   
+            currentDoor = collision.gameObject;
+        }
+
+        if (collision.gameObject.CompareTag("key"))
+        {
+            iskey = true;
+            Destroy(collision.gameObject);
+        }
+
+        if (collision.CompareTag("guardvision"))
+        {
+            isInsideGuardVision = true;
+        }
+
+        if (collision.CompareTag("guardhearing"))
+        {
+            isInsideGuardHearing = true;
+        }
+
+        if (collision.CompareTag("hidespot"))
+        {
+            iscanhide = true;
+            currentlocker = collision.gameObject;
+        }
+    }
+
+    private void OnTriggerExit2D(Collider2D collision)
+    {
+        if (collision.CompareTag("door"))
+        {
+            iscanusedoor = false;
+            if (collision.gameObject == currentDoor)
+            {
+                currentDoor = null;
+            }
+        }
+
+        if (collision.CompareTag("guardvision"))
+        {
+            isInsideGuardVision = false;
+        }
+
+        if (collision.CompareTag("guardhearing"))
+        {
+            isInsideGuardHearing = false;
+        }
+
+        if (collision.CompareTag("hidespot"))
+        {
+            iscanhide = false;
+            if (collision.gameObject == currentlocker)
+            {
+                currentlocker = null;
+            }
+        }
+    }
+
+    private IEnumerator gameoverafterdelay()
+    {
+        yield return new WaitForSeconds(0.2f);
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+}
